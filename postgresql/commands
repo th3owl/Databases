@@ -1,0 +1,339 @@
+# PostgreSQL `psql` Learning Notes
+
+Commands and outputs collected while exploring the `demo_app` database.
+
+## Connect to PostgreSQL
+
+```bash
+psql -h localhost -p 5432 -U postgres -d demo_app
+```
+
+Output:
+
+```text
+psql (16.14)
+Type "help" for help.
+```
+
+If password authentication fails, connect locally as the operating-system `postgres` user and reset the password:
+
+```bash
+psql -d demo_app
+```
+
+```sql
+ALTER USER postgres WITH PASSWORD 'ChooseA_StrongPassword';
+```
+
+## PostgreSQL server environment
+
+```bash
+echo "$PGDATA"
+export PGDATA=/var/lib/pgsql/16/data
+echo "$PGDATA"
+/usr/pgsql-16/bin/pg_ctl -D "$PGDATA" status
+```
+
+Output:
+
+```text
+pg_ctl: server is running (PID: 851)
+/usr/pgsql-16/bin/postgres "-D" "/var/lib/pgsql/16/data/"
+```
+
+Persist the data directory and PostgreSQL executables in the `postgres` user environment:
+
+```bash
+echo 'export PGDATA=/var/lib/pgsql/16/data' >> ~/.bash_profile
+echo 'export PATH=/usr/pgsql-16/bin:$PATH' >> ~/.bash_profile
+source ~/.bash_profile
+echo "$PATH"
+which pg_ctl
+pg_ctl --version
+```
+
+## Connection information
+
+```sql
+\conninfo
+SELECT current_database();
+SELECT current_user;
+SELECT version();
+```
+
+Captured output:
+
+```text
+ current_database
+------------------
+ demo_app
+(1 row)
+
+ current_user
+--------------
+ postgres
+(1 row)
+
+PostgreSQL 16.14 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 11.5.0 20240719 (Red Hat 11.5.0-14), 64-bit
+```
+
+## Databases
+
+```sql
+\l
+\l+
+\c demo_app
+```
+
+Captured database list:
+
+```text
+ demo_app  | postgres | UTF8 | libc | en_US.UTF-8 | en_US.UTF-8
+ postgres  | postgres | UTF8 | libc | en_US.UTF-8 | en_US.UTF-8
+ template0 | postgres | UTF8 | libc | en_US.UTF-8 | en_US.UTF-8
+ template1 | postgres | UTF8 | libc | en_US.UTF-8 | en_US.UTF-8
+(4 rows)
+```
+
+Create a database:
+
+```sql
+CREATE DATABASE demo_app;
+```
+
+Database sizes:
+
+```sql
+SELECT datname,
+       pg_size_pretty(pg_database_size(datname)) AS size
+FROM pg_database
+ORDER BY pg_database_size(datname) DESC;
+```
+
+## Schemas and search path
+
+```sql
+\dn
+\dn+
+SHOW search_path;
+SET search_path TO sales, public;
+```
+
+Captured schemas:
+
+```text
+      List of schemas
+  Name  |       Owner
+--------+-------------------
+ public | pg_database_owner
+ sales  | postgres
+(2 rows)
+```
+
+```sql
+SELECT schema_name
+FROM information_schema.schemata
+ORDER BY schema_name;
+```
+
+Captured result:
+
+```text
+ information_schema
+ pg_catalog
+ pg_toast
+ public
+ sales
+(5 rows)
+```
+
+Create the `sales` schema:
+
+```sql
+CREATE SCHEMA sales;
+```
+
+## Tables
+
+```sql
+\dt
+\dt *.*
+\dt sales.*
+\dt+ sales.*
+```
+
+Captured `sales` table list:
+
+```text
+ Schema |   Name    | Type  |  Owner
+--------+-----------+-------+----------
+ sales  | customers | table | postgres
+ sales  | orders    | table | postgres
+(2 rows)
+```
+
+List tables with SQL:
+
+```sql
+SELECT table_schema, table_name
+FROM information_schema.tables
+WHERE table_type = 'BASE TABLE'
+  AND table_schema <> 'pg_catalog'
+ORDER BY table_schema, table_name;
+```
+
+Captured result contained these user tables:
+
+```text
+ public | order_items
+ public | orders
+ public | products
+ public | users
+ sales  | customers
+ sales  | orders
+(10 rows including information_schema tables)
+```
+
+## Describe tables
+
+```sql
+\d sales.customers
+\d+ sales.customers
+\d sales.*
+```
+
+Captured `sales.customers` definition:
+
+```text
+Table "sales.customers"
+    Column     |           Type           | Nullable | Default
+---------------+--------------------------+----------+------------------------------------------------------
+ customer_id   | bigint                   | not null | nextval('sales.customers_customer_id_seq'::regclass)
+ customer_name | character varying(100)   | not null |
+ email         | character varying(120)   | not null |
+ city          | character varying(50)    |          |
+ created_at    | timestamp with time zone |          | now()
+Indexes:
+    "customers_pkey" PRIMARY KEY, btree (customer_id)
+    "customers_email_key" UNIQUE CONSTRAINT, btree (email)
+```
+
+## Data queries
+
+```sql
+SELECT * FROM sales.customers;
+SELECT * FROM sales.customers LIMIT 5;
+SELECT * FROM sales.orders ORDER BY amount DESC;
+SELECT COUNT(*) FROM sales.customers;
+```
+
+Join customers and orders:
+
+```sql
+SELECT c.customer_name, c.city, o.order_id, o.status, o.amount
+FROM sales.customers c
+JOIN sales.orders o ON o.customer_id = c.customer_id
+ORDER BY o.order_id;
+```
+
+Summarize orders:
+
+```sql
+SELECT status, COUNT(*) AS order_count,
+       SUM(amount) AS total_amount,
+       AVG(amount) AS average_amount
+FROM sales.orders
+GROUP BY status
+ORDER BY status;
+```
+
+## `psql` display and help shortcuts
+
+```sql
+\?                 -- psql command help
+\h                 -- SQL command help
+\h SELECT
+\x                 -- Expanded display
+\x auto
+\x off
+\pset pager off
+\timing on
+\timing off
+```
+
+## Users, privileges, indexes, views, and sequences
+
+```sql
+\du
+\du+
+\dp
+\dp sales.*
+\z sales.*
+\di
+\di+ sales.*
+\dv
+\ds
+\dm
+```
+
+## Files, shell, and exit
+
+```sql
+\i script.sql
+\e
+\! pwd
+\! ls
+\o /tmp/output.txt
+SELECT * FROM sales.customers;
+\o
+\q
+```
+
+Cancel the current query with `Ctrl+C`.
+
+## Useful catalog queries
+
+```sql
+SELECT pid, usename, datname, client_addr, state, query
+FROM pg_stat_activity;
+```
+
+```sql
+SELECT schemaname, relname AS table_name,
+       n_live_tup AS estimated_rows
+FROM pg_stat_user_tables
+ORDER BY relname;
+```
+
+```sql
+SELECT schemaname, relname AS table_name,
+       pg_size_pretty(pg_total_relation_size(relid)) AS total_size
+FROM pg_catalog.pg_statio_user_tables
+ORDER BY pg_total_relation_size(relid) DESC;
+```
+
+## Import and export CSV
+
+```sql
+\copy sales.customers TO '/tmp/customers.csv' CSV HEADER
+\copy sales.customers(customer_name, email, city)
+FROM '/tmp/customers.csv' CSV HEADER;
+```
+
+## Transactions
+
+```sql
+BEGIN;
+UPDATE sales.orders SET status = 'completed' WHERE order_id = 2;
+COMMIT;
+```
+
+```sql
+BEGIN;
+DELETE FROM sales.orders WHERE order_id = 2;
+ROLLBACK;
+```
+
+## Important reminder
+
+`psql` meta-commands such as `\l`, `\dt`, and `\d` do not require a semicolon. SQL statements such as `SELECT`, `CREATE`, and `ALTER` do require a semicolon.
