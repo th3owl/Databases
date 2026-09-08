@@ -32,6 +32,8 @@ postgres=# \du+ demo_owner
  demo_owner |            | 
 ```
 # Create a database with an owner and connection limit
+- CREATEDB and DROPDB are the OS level commands used to create and drop a database
+- CREATE DATABASE and DROP DATABASE are DB level commands used to create and drop a database
 ```
 postgres=# CREATE DATABASE demo_reporting
     WITH
@@ -95,6 +97,11 @@ demo_reporting=# SELECT
 (1 row)
 ```
 # Create a schema owned by the demo_owner
+- Logical entity to group related objects
+- Not mandatory to create one
+- Default is `public` schema
+- When a schema is created, unlike Oracle, it wont create a user with teh same name. User creation is to be done separately
+- `AUTHORIZATION` is used to assign the ownership of a schema
 ```
 demo_reporting=# CREATE SCHEMA reporting AUTHORIZATION demo_owner;
 CREATE SCHEMA
@@ -104,9 +111,9 @@ demo_reporting=# show search_path;
 -----------------
  "$user", public
 (1 row)
-
-Set the default schema for the database:
-
+```
+## Set the default schema for the database:
+```
 demo_reporting=# ALTER DATABASE demo_reporting SET search_path TO reporting, public;
 ALTER DATABASE
 
@@ -123,6 +130,17 @@ demo_reporting=# show search_path;
     search_path    
 -------------------
  reporting, public
+
+demo_reporting=# select n.nspname AS "Name", pg_catalog.pg_get_userbyid(n.nspowner) AS "Owner" FROM pg_catalog.pg_namespace n WHERE n.nspname = 'reporting';
+   Name    |   Owner    
+-----------+------------
+ reporting | demo_owner
+(1 row)
+
+demo_reporting=# \conninfo
+You are connected to database "demo_reporting" as user "postgres" via socket in "/run/postgresql" at port "5432".
+demo_reporting=# 
+
 ```
 # Sample Data Creation
 ## Create demo tables
@@ -210,3 +228,56 @@ demo_reporting=# \du demo_owner
 ------------+------------
  demo_owner | 
 ```
+# Identifying the physical location of a database
+```
+postgres=# select oid, datname from pg_database;
+  oid  |    datname     
+-------+----------------
+     5 | postgres
+ 16390 | demo_app
+     1 | template1
+     4 | template0
+ 16473 | demo_reporting
+(5 rows)
+
+postgres=# \q
+
+[postgres@postgres-server ~]$ ls -ld $PGDATA/base/16390
+drwx------. 2 postgres postgres 8192 Sep  8 04:18 /var/lib/pgsql/16/data/base/16390
+```
+# Identifying the physical location of an object - table
+```
+[demo_app=# select oid, relname from pg_class where relname = 'customers';
+  oid  |  relname  
+-------+-----------
+ 16449 | customers
+
+ demo_app=# SELECT pg_relation_filepath('sales.customers');
+ pg_relation_filepath 
+----------------------
+ base/16390/16449
+```
+# Dropping a user
+- User with no associated objects cane be dropped directly using `drop user` command
+- If the user owns any objects, we need to re-assign teh ownership
+```
+\c demo
+
+REASSIGN OWNED BY sample TO postgres;
+DROP OWNED BY sample;
+
+\c postgres
+
+REVOKE ALL PRIVILEGES ON DATABASE demo FROM sample;
+
+SELECT pg_terminate_backend(pid)
+FROM pg_stat_activity
+WHERE usename = 'sample';
+
+DROP ROLE sample;
+
+\du
+```
+REASSIGN OWNED: transfers objects owned by sample to postgres.
+DROP OWNED: removes privileges and remaining database objects owned by sample.
+DROP ROLE: removes the role.
