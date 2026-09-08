@@ -278,6 +278,6 @@ DROP ROLE sample;
 
 \du
 ```
-REASSIGN OWNED: transfers objects owned by sample to postgres.
-DROP OWNED: removes privileges and remaining database objects owned by sample.
-DROP ROLE: removes the role.
+- REASSIGN OWNED: transfers objects owned by sample to postgres.
+- DROP OWNED: removes privileges and remaining database objects owned by sample.
+- DROP ROLE: removes the role.
