@@ -532,7 +532,41 @@ Show database version:
 ```sql
 SELECT version();
 ```
+Show config file details:
 
+```sql
+SELECT config_file;
+
+[postgres@postgres-server ~]$ ps -ef | grep -i /postgres
+postgres     793       1  0 00:54 ?        00:00:13 /usr/local/bin/postgres_exporter
+postgres     851       1  0 00:54 ?        00:00:01 /usr/pgsql-16/bin/postgres -D /var/lib/pgsql/16/data/
+```
+Example output:
+
+```text
+              config_file               
+----------------------------------------
+ /var/lib/pgsql/16/data/postgresql.conf
+```
+
+Other config files:
+```
+[postgres@postgres-server ~]$ grep -iE "include|include_dir" /var/lib/pgsql/16/data/postgresql.conf
+					# can include strftime() escapes
+# CONFIG FILE INCLUDES
+#include_dir = '...'			# include files ending in '.conf' from
+#include_if_exists = '...'		# include file only if it exists
+#include = '...'			# include file
+
+demo_app=# select name, setting from pg_settings where setting like '%.conf%';
+    name     |                setting                 
+-------------+----------------------------------------
+ config_file | /var/lib/pgsql/16/data/postgresql.conf
+ hba_file    | /var/lib/pgsql/16/data/pg_hba.conf
+ ident_file  | /var/lib/pgsql/16/data/pg_ident.conf
+
+```
+- If a parameter has been set to different values in different .conf files, it would be assing teh value mentioned in the last read file
 ## Exit and Keyboard Shortcuts
 
 Exit `psql`:
@@ -540,19 +574,3 @@ Exit `psql`:
 ```sql
 \q
 ```
-
-Useful keyboard shortcuts:
-
-```text
-Ctrl+C  Cancel the current query
-Ctrl+D  Exit psql
-```
-
-## Important Notes
-
-- `\l`, `\dt`, `\dn`, and `\d` are `psql` meta-commands.
-- `psql` meta-commands do not require a semicolon.
-- SQL commands such as `SELECT`, `CREATE`, `ALTER`, and `UPDATE` require a semicolon.
-- Use `\dt sales.*` to list tables in the `sales` schema.
-- Use `\d sales.customers` to describe one table.
-- Use `\d sales.*` to describe all relations in the `sales` schema.
