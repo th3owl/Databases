@@ -45,3 +45,39 @@ demo_app=# select name, setting from pg_settings where setting like '%.conf%';
   pg_ctl -D $PGDATA -o '--config-file=/pconfog/postgresql.conf' start
   psql -c "show config_file"
   ```
+  ## postgresql.auto.conf
+  - Location default to PGDATA
+  - Location CAN'T be modified
+  - Any changes made using `ALTER SYSTEM` command are captures in this file
+  ### Example
+  ```
+  Before Change:
+
+[postgres@postgres-server ~]$ grep -i work_mem /var/lib/pgsql/16/data/postgresql.conf
+#work_mem = 4MB                         # min 64kB
+
+[postgres@postgres-server ~]$ grep -i work_mem /var/lib/pgsql/16/data/postgresql.auto.conf
+grep: /var/lib/pgsql/16/data/postgresql.auto.conf: No such file or directory
+
+demo_app=# show work_mem;
+ work_mem 
+----------
+ 4MB
+
+After Change:
+
+demo_app=# ALTER SYSTEM SET work_mem TO '8MB';
+ALTER SYSTEM
+demo_app=# show work_mem;
+ work_mem 
+----------
+ 4MB
+(1 row)
+
+[postgres@postgres-server ~]$ grep -i work_mem /var/lib/pgsql/16/data/postgresql.conf
+#work_mem = 4MB                         # min 64kB
+
+[postgres@postgres-server ~]$ grep -i work_mem /var/lib/pgsql/16/data/postgresql.auto.conf
+work_mem = '8MB'
+```
+
