@@ -50,7 +50,7 @@ demo_app=# select name, setting from pg_settings where setting like '%.conf%';
   - Location CAN'T be modified
   - Any changes made using `ALTER SYSTEM` command are captures in this file
   ### Example
-  ```
+```text
   Before Change:
 
 [postgres@postgres-server ~]$ grep -i work_mem /var/lib/pgsql/16/data/postgresql.conf
@@ -79,5 +79,49 @@ demo_app=# show work_mem;
 
 [postgres@postgres-server ~]$ grep -i work_mem /var/lib/pgsql/16/data/postgresql.auto.conf
 work_mem = '8MB'
+```
+- In this case we need to reload teh config to update the value
+```
+demo_app=#  select context, name, setting, pending_restart from pg_settings where name = 'work_mem';
+ context |   name   | setting | pending_restart 
+---------+----------+---------+-----------------
+ user    | work_mem | 8192    | f
+
+demo_app=# select pg_reload_conf();
+ pg_reload_conf 
+----------------
+ t
+(1 row)
+
+demo_app=# show work_mem;
+ work_mem 
+----------
+ 8MB
+(1 row)
+```
+- Some parameter require a restart of Postgres itself. Reloading teh config wont help in such cases
+### Understanding `context` in `pg_settings`
+- In pg_settings, context tells you when a parameter change takes effect.
+```
+Context	Meaning
+internal	Fixed internally; cannot be changed by users
+postmaster	Requires a complete PostgreSQL server restart
+sighup	Takes effect after configuration reload
+backend	Applies when a new backend/session starts
+superuser-backend	New session required; usually only a superuser can change it
+user	Can be changed by any user for their own session
+superuser	Can be changed by a superuser for their own session
+superuser-backend	Superuser setting that applies to newly created sessions
+
+| Context | Meaning |
+|---|---|
+| `internal` | Fixed internally; cannot be changed by users |
+| `postmaster` | Requires a complete PostgreSQL server restart |
+| `sighup` | Takes effect after configuration reload |
+| `backend` | Applies when a new backend/session starts |
+| `superuser-backend` | New session required; usually only a superuser can change it |
+| `user` | Can be changed by any user for their own session |
+| `superuser` | Can be changed by a superuser for their own session |
+| `superuser-backend` | Superuser setting that applies to newly created sessions |
 ```
 
