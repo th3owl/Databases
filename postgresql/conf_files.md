@@ -33,7 +33,7 @@ demo_app=# select name, setting from pg_settings where setting like '%.conf%';
  ident_file  | /var/lib/pgsql/16/data/pg_ident.conf
 
 ```
-## Modifying postgres.conf file location
+## Modifying postgresql.conf file location
 - We can modify the location of postgres.conf from its default vendor specific location
 - Note: We need to shutdown POstgreSQL Server to do this
 - Sequence of steps would be:
